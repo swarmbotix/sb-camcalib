@@ -1,0 +1,14 @@
+# sb.app.yml: swarmbotix app package manifest. Written by `sb app init`.
+# `kind` picks what `sb install` does besides registering the app:
+#   none    nothing; `entry` runs as shipped
+#   docker  `docker pull` docker.image (at install if prefetch: true, else on first run)
+#   host    run host.install from the package root, at install and at `sb app update`
+name: camcalib             # subcommand: `sb camcalib ...`. Letters, digits, underscore; must not be an sb builtin.
+version: 0.1.0
+description: Camera calibration in a box (Kalibr in Docker)
+entry: ./camcalib          # run with the user's args, from the user's cwd. Relative to this file's folder.
+kind: docker               # docker | host | none
+docker:                    # only for kind: docker
+  image: swarmbotix/sb_kalibr:latest
+  prefetch: false          # true = pull at `sb install`; false = app pulls on first run
+requires: [docker]         # binaries that must be on PATH; `sb doctor` checks them

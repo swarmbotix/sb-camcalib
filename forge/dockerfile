@@ -1,0 +1,98 @@
+# sb_kalibr image: ROS1 Noetic + Kalibr (built in) + the camcalib container API.
+#
+# Build from the repository root so that forge/ paths resolve:
+#   docker build -f forge/dockerfile -t swarmbotix/sb_kalibr:latest .
+# or simply:  bash forge/build.bash
+#
+# Nothing in this image is specific to a dataset or a calibration target. Images,
+# IMU csv and target yaml are mounted at run time by the host `camcalib` script.
+#
+# This image redistributes Kalibr (https://github.com/ethz-asl/kalibr) in binary
+# form under its BSD license; the license text ships with the source at
+# /opt/kalibr/src/kalibr/LICENSE and in LICENSE-kalibr at the repository root.
+# This product includes software developed by the Autonomous Systems Lab and Skybotix AG.
+FROM osrf/ros:noetic-desktop-full
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV ROS_DISTRO=noetic
+
+# ---------------------------------------------------------------------------
+# Kalibr build/runtime dependencies (https://github.com/ethz-asl/kalibr/wiki/installation)
+# ---------------------------------------------------------------------------
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git wget curl nano vim \
+    build-essential cmake \
+    python3-pip python3-dev python3-setuptools python3-rosinstall \
+    python3-catkin-tools python3-osrf-pycommon \
+    ipython3 \
+    libv4l-dev libeigen3-dev libboost-all-dev libsuitesparse-dev \
+    doxygen libopencv-dev \
+    libpoco-dev libtbb-dev libblas-dev liblapack-dev \
+    python3-scipy python3-matplotlib \
+    python3-tk python3-igraph \
+    python3-wxgtk4.0 \
+    libglew-dev \
+    x11-apps mesa-utils \
+    && rm -rf /var/lib/apt/lists/*
+
+# numpy 1.21.6 is the highest 1.x release that stays ABI-compatible with the
+# precompiled Noetic Python modules (cv_bridge, tf, ...).
+RUN pip3 install --no-cache-dir \
+    "numpy==1.21.6" \
+    pyx \
+    opencv-contrib-python \
+    pupil-apriltags
+
+# Kalibr scripts use `#!/usr/bin/env python`; the image only ships python3.
+RUN ln -sf /usr/bin/python3 /usr/bin/python
+
+# ---------------------------------------------------------------------------
+# Kalibr: clone at a pinned commit, apply local robustness patch, build.
+# Lives in /opt/kalibr; no host workspace is needed at run time.
+# ---------------------------------------------------------------------------
+ARG KALIBR_REPO=https://github.com/ethz-asl/kalibr.git
+ARG KALIBR_COMMIT=1f60227
+ENV KALIBR_COMMIT=${KALIBR_COMMIT}
+
+COPY forge/patches/kalibr-fixes.patch /tmp/kalibr-fixes.patch
+RUN mkdir -p /opt/kalibr/src \
+ && git clone "${KALIBR_REPO}" /opt/kalibr/src/kalibr \
+ && git -C /opt/kalibr/src/kalibr checkout --quiet "${KALIBR_COMMIT}" \
+ && git -C /opt/kalibr/src/kalibr apply /tmp/kalibr-fixes.patch \
+ && rm /tmp/kalibr-fixes.patch
+
+SHELL ["/bin/bash", "-c"]
+RUN source /opt/ros/noetic/setup.bash \
+ && cd /opt/kalibr \
+ && catkin config --extend /opt/ros/noetic --merge-devel \
+      --cmake-args -DCMAKE_BUILD_TYPE=Release \
+ && catkin build -j"$(nproc)" \
+ && rm -rf /opt/kalibr/build /opt/kalibr/logs \
+ && find /opt/kalibr/src/kalibr -name "kalibr_*" -type f -exec chmod +x {} \; \
+ && chmod +x /opt/kalibr/devel/_setup_util.py
+
+# ---------------------------------------------------------------------------
+# ROS + Kalibr overlay available in every shell (interactive or not).
+# ---------------------------------------------------------------------------
+RUN echo 'source /opt/ros/noetic/setup.bash' >> /etc/bash.bashrc \
+ && echo 'source /opt/kalibr/devel/setup.bash' >> /etc/bash.bashrc \
+ && echo 'source /opt/ros/noetic/setup.bash' >> /root/.bashrc \
+ && echo 'source /opt/kalibr/devel/setup.bash' >> /root/.bashrc
+
+# matplotlib / wx need a writable config dir even when running as a non-root uid.
+ENV MPLCONFIGDIR=/tmp/mpl
+ENV HOME=/tmp/home
+RUN mkdir -p /tmp/mpl /tmp/home && chmod 1777 /tmp/mpl /tmp/home
+
+# ---------------------------------------------------------------------------
+# camcalib container API
+# ---------------------------------------------------------------------------
+COPY forge/api /opt/camcalib
+RUN chmod +x /opt/camcalib/*.sh /opt/camcalib/*.py /opt/camcalib/capture/*.py
+
+# Mount points used by the host script.
+RUN mkdir -p /data_in/case /data_out/case && chmod 777 /data_in /data_out /data_out/case
+
+WORKDIR /data_out/case
+ENTRYPOINT ["/opt/camcalib/entrypoint.sh"]
+CMD ["calibrate"]

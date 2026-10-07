@@ -1,0 +1,29 @@
+# Developer compose file. End users do not need this: they run the `camcalib`
+# script at the repository root, which calls `docker run` directly.
+#
+# Usage (from the repository root or from forge/):
+#   docker compose -f forge/docker-compose.yml build          # build the image
+#   docker compose -f forge/docker-compose.yml run --rm dev   # shell with live API override
+#
+# The `dev` service mounts forge/api over the baked /opt/camcalib so edits to
+# the container API take effect without a rebuild.
+services:
+  dev:
+    build:
+      context: ..
+      dockerfile: forge/dockerfile
+    image: swarmbotix/sb_kalibr:latest
+    stdin_open: true
+    tty: true
+    network_mode: host
+    environment:
+      - DISPLAY=${DISPLAY:-:0}
+      - QT_X11_NO_MITSHM=1
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      - /dev:/dev
+      - ./api:/opt/camcalib:ro
+      - ../april_6x10_40mm.yaml:/data_in/target_default.yaml:ro
+    privileged: true
+    entrypoint: ["/opt/camcalib/entrypoint.sh"]
+    command: ["shell"]

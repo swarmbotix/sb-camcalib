@@ -1,0 +1,5 @@
+target_type: 'aprilgrid'
+tagRows:    6
+tagCols:    10
+tagSize:    0.0518        # meters (51.8 mm, measured)
+tagSpacing: 0.30038       # gap/tagSize = 15.56 mm / 51.8 mm

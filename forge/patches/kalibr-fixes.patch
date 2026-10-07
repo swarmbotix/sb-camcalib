@@ -1,0 +1,54 @@
+diff --git a/aslam_offline_calibration/kalibr/python/kalibr_calibrate_cameras b/aslam_offline_calibration/kalibr/python/kalibr_calibrate_cameras
+index dc6a909..3403878 100755
+--- a/aslam_offline_calibration/kalibr/python/kalibr_calibrate_cameras
++++ b/aslam_offline_calibration/kalibr/python/kalibr_calibrate_cameras
+@@ -272,8 +272,11 @@ def main():
+                 est_baselines = list()
+                 for bidx, baseline in enumerate(calibrator.baselines):
+                     est_baselines.append( sm.Transformation(baseline.T()) )
+-                T_tc_guess = graph.getTargetPoseGuess(timestamp, cameraList, est_baselines)
+-                               
++                try:
++                    T_tc_guess = graph.getTargetPoseGuess(timestamp, cameraList, est_baselines)
++                except Exception:
++                    continue
++
+                 success = calibrator.addTargetView(timestamp, obs_tuple, T_tc_guess)
+                 
+                 #display process
+diff --git a/aslam_offline_calibration/kalibr/python/kalibr_camera_calibration/CameraIntializers.py b/aslam_offline_calibration/kalibr/python/kalibr_camera_calibration/CameraIntializers.py
+index 8affa93..6b98635 100644
+--- a/aslam_offline_calibration/kalibr/python/kalibr_camera_calibration/CameraIntializers.py
++++ b/aslam_offline_calibration/kalibr/python/kalibr_camera_calibration/CameraIntializers.py
+@@ -216,8 +216,12 @@ def calibrateIntrinsics(cam_geometry, obslist, distortionActive=True, intrinsics
+     reprojectionErrors = [];    
+     sm.logDebug("calibrateIntrinsics: adding camera error terms for {0} calibration targets".format(len(obslist)))
+     target_pose_dvs=list()
+-    for obs in obslist: 
+-        success, T_t_c = cam_geometry.geometry.estimateTransformation(obs)
++    for obs in obslist:
++        try:
++            success, T_t_c = cam_geometry.geometry.estimateTransformation(obs)
++        except Exception as e:
++            sm.logWarn("calibrateIntrinsics: skipping observation ({0})".format(e))
++            continue
+         target_pose_dv = addPoseDesignVariable(problem, T_t_c)
+         target_pose_dvs.append(target_pose_dv)
+         
+diff --git a/aslam_offline_calibration/kalibr/python/kalibr_camera_calibration/MulticamGraph.py b/aslam_offline_calibration/kalibr/python/kalibr_camera_calibration/MulticamGraph.py
+index 757c8e6..b3f2db2 100644
+--- a/aslam_offline_calibration/kalibr/python/kalibr_camera_calibration/MulticamGraph.py
++++ b/aslam_offline_calibration/kalibr/python/kalibr_camera_calibration/MulticamGraph.py
+@@ -248,7 +248,11 @@ class MulticamCalibrationGraph(object):
+         
+         #solve the pnp problem
+         camera_geomtry = cameras[cam_id_max].geometry
+-        success, T_t_cN = camera_geomtry.estimateTransformation(self.obs_db.getObservationAtTime(timestamp, cam_id_max))
++        try:
++            success, T_t_cN = camera_geomtry.estimateTransformation(self.obs_db.getObservationAtTime(timestamp, cam_id_max))
++        except Exception as e:
++            sm.logWarn("getTargetPoseGuess: estimateTransformation failed ({0}), skipping view".format(e))
++            raise RuntimeError("skipping view")
+                
+         if not success:
+             sm.logWarn("getTargetPoseGuess: solvePnP failed with solution: {0}".format(T_t_cN))
