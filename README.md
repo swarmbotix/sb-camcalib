@@ -22,6 +22,23 @@ sb camcalib ~/data/mycam          # same arguments as ./camcalib, run from anywh
 sb app update camcalib            # pull a newer version later
 ```
 
+### Ask Claude to walk you through it
+
+The repo ships Claude Code skills (`.claude/skills/`: `calib-mono`, `calib-rig`, `calib-imu`).
+After the clone or `sb install`, open Claude Code in the package folder and paste:
+
+```text
+I just installed sb_kalibr. Use the calib-mono skill to calibrate the bundled sample
+in examples/ and show me the resulting camchain.yaml. Then explain, at a high level
+only: what sb install / the clone set up, which Docker image is used and when it is
+pulled, what the example case folder looks like, what each output file means, and
+how I would run my own single camera, stereo rig, or camera+IMU case.
+```
+
+Claude runs the sample through the skill, reads the result and summarises the workflow.
+Point it at your own folder afterwards (`calibrate ~/data/mycam`) and the matching skill
+takes over.
+
 Try it on the bundled sample (147 frames of one 1280x800 camera in `examples/`):
 
 ```bash
