@@ -47,7 +47,7 @@ map1, map2 = cv2.initUndistortRectifyMap(K, dist, None, new_K, (W, H), cv2.CV_16
 
 print(f"New K after undistortion:\n{new_K}")
 
-SAVE_DIR = os.environ.get("CAPTURE_DIR") or "/data_out/debug/cam0_undist"
+SAVE_DIR = os.environ.get("CAPTURE_DIR") or "/output/debug/cam0_undist"
 os.makedirs(SAVE_DIR, exist_ok=True)
 
 _arg   = sys.argv[1] if len(sys.argv) > 1 else "/dev/video0"

@@ -1,14 +1,14 @@
-# Case folder and output layout
+# Input folder and output layout
 
-Exact rules for what `camcalib` reads from a case folder and what it writes back. Enforced by `forge/api/inspect_case.py` and arranged by `forge/api/split_camchain.py`.
+Exact rules for what `camcalib` reads from an input folder and what it writes back. Enforced by `forge/api/inspect_input.py` and arranged by `forge/api/split_camchain.py`.
 
-## Input: case folder
+## Input: input folder
 
-A *case* is one folder. Camera count is the number of `cam*/` subfolders. IMU presence is the
+The input is one folder. Camera count is the number of `cam*/` subfolders. IMU presence is the
 existence of `imu0.csv`.
 
 ```
-<case>/
+<folder>/
   cam0/                 required
     0000.png ...        frame index naming, OR <nanoseconds>.png (>= 13 digits)
   cam1/ ... camN/       optional. Same frame count AND identical file names as cam0.
@@ -16,19 +16,19 @@ existence of `imu0.csv`.
   imu0.csv              optional. Columns: timestamp_ns, wx, wy, wz, ax, ay, az (header row required)
   imu0.yaml             required with imu0.csv. Kalibr IMU noise yaml (see docs/imu.md, examples/imu0.yaml)
   target.yaml           optional. Overrides the default target.
-  calib.yaml            optional. Per-case defaults (see examples/calib.yaml), e.g.
+  calib.yaml            optional. Per-folder defaults (see examples/calib.yaml), e.g.
                           models: [pinhole-equi]
                           step: 2
                           max_frames: 60
                           focal: 700
 ```
 
-Compatibility: a case with images directly in `<case>/` (no `cam0/`) is treated as a single
+Compatibility: a folder with images directly in `<folder>/` (no `cam0/`) is treated as a single
 camera.
 
 Accepted image extensions: png, jpg, jpeg, bmp. Images are read as 8-bit grayscale.
 
-Rules enforced by `inspect_case.py` (run `camcalib inspect <case>` to see them):
+Rules enforced by `inspect_input.py` (run `camcalib inspect <folder>` to see them):
 
 - `cam0..camN` must be contiguous.
 - Frame counts and file names must match across cameras.
@@ -40,10 +40,10 @@ which is how Kalibr pairs synchronised frames.
 
 ## Output: calib folder
 
-Default: `<case>/calib/`. Override with `--out DIR`.
+Default: `<folder>/calib/`. Override with `--out DIR`.
 
 ```
-<case>/calib/
+<folder>/calib/
   cam0/
     camchain.yaml         this camera: intrinsics (+ T_cn_cnm1 to the previous camera for k > 0)
     results-cam.txt       (N == 1 only; for N >= 2 the full report is under rig/)
@@ -58,7 +58,7 @@ Default: `<case>/calib/`. Override with `--out DIR`.
     imu.yaml
     results-imucam.txt
     report-imucam.pdf
-  case.json               inspect_case output
+  input.json               inspect_input output
   manifest.json           mode, N, models, step, focal init, target, kalibr commit, date
   log.txt                 full Kalibr log
   calib.bag               only with --keep-bag (or if the run failed)

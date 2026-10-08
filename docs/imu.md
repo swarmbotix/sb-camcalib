@@ -32,10 +32,10 @@ gyroscope_noise_density:     0.0005    # rad/s/sqrt(Hz)
 gyroscope_random_walk:       4.0e-06   # rad/s^2/sqrt(Hz)
 ```
 
-Recommended workflow: calibrate cameras from a slow, sharp dataset (case A), then run the IMU
-dataset (case B, fast motion) with `--camchain` pointing at case A's `rig/camchain.yaml`.
-Because the container only sees the case and output mounts, copy case A's camchain into case B
-(`cp A/calib/rig/camchain.yaml B/camchain.yaml`) and pass `--camchain /data_in/case/camchain.yaml`.
+Recommended workflow: calibrate cameras from a slow, sharp dataset (folder A), then run the IMU
+dataset (folder B, fast motion) with `--camchain` pointing at folder A's `rig/camchain.yaml`.
+Because the container only sees the input and output mounts, copy folder A's camchain into folder B
+(`cp A/calib/rig/camchain.yaml B/camchain.yaml`) and pass `--camchain /input/camchain.yaml`.
 
 Status: the IMU stage is wired per the Kalibr command line but has not yet been exercised end
 to end with a real dataset.

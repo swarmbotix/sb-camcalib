@@ -105,7 +105,7 @@ def main():
     if use_april and not _APRIL_AVAILABLE:
         sys.exit("pupil-apriltags not found: pip install pupil-apriltags")
 
-    SAVE_DIR = os.environ.get("CAPTURE_DIR") or "/data_out/debug/cam0"
+    SAVE_DIR = os.environ.get("CAPTURE_DIR") or "/output/debug/cam0"
     os.makedirs(SAVE_DIR, exist_ok=True)
 
     cap, W, H = open_camera(args.device, args.width, args.height, args.fps)

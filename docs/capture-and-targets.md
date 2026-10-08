@@ -11,7 +11,7 @@
 ```
 
 Frames are saved as `<ns>.png` under `$CAMCALIB_CAPTURE_DIR/cam0/`, which is directly usable
-as a case. Requires `xhost +local:` on the host. V4L2 devices only; the scripts default to
+as an input folder. Requires `xhost +local:` on the host. V4L2 devices only; the scripts default to
 1280x720 MJPG.
 
 Generic AprilTag detectors cannot see Kalibr's AprilGrid because the tags are embedded in a

@@ -2,7 +2,7 @@
 
 ## Development workflow
 
-- Edit `forge/api/*` and test without rebuilding: `CAMCALIB_DEV=1 ./camcalib <case>` (overlays
+- Edit `forge/api/*` and test without rebuilding: `CAMCALIB_DEV=1 ./camcalib <folder>` (overlays
   the local API on the published image).
 - Rebuild after changing the dockerfile or the Kalibr patch: `./camcalib build`. The Kalibr
   layer is cached; API-only rebuilds take seconds. Publish with `./camcalib build --push`
@@ -12,7 +12,7 @@
   `/opt/kalibr/src/kalibr/aslam_offline_calibration/kalibr/python` (`$KALIBR_PY`).
 - Pin changes: `KALIBR_COMMIT` build arg in `forge/dockerfile`.
 - Build context is the repository root; `.dockerignore` restricts it to `forge/`.
-- Verified on 2026-10-07 against a previous host-built Kalibr pipeline: a 1280x800 mono case
+- Verified on 2026-10-07 against a previous host-built Kalibr pipeline: a 1280x800 mono dataset
   matched intrinsics within 0.2 px, and a 1440x1080 FLIR stereo pair matched the baseline
   within 0.05 mm with identical reprojection error.
 

@@ -42,9 +42,9 @@ setting. To publish a new version (maintainers): `docker login` as `swarmbotix`,
 ## Commands and options
 
 ```
-camcalib [calibrate] [CASE] [--out DIR] [options]    CASE defaults to the current directory
-camcalib inspect [CASE]                              describe the case, no calibration
-camcalib shell [CASE]                                bash inside the container (ROS + Kalibr sourced)
+camcalib [calibrate] [FOLDER] [--out DIR] [options]    FOLDER defaults to the current directory
+camcalib inspect [FOLDER]                            describe the input folder, no calibration
+camcalib shell [FOLDER]                              bash inside the container (ROS + Kalibr sourced)
 camcalib capture <script> [args]                     live capture / detection tools
 camcalib build [--tag T] [--push] [--no-cache]       build the image locally (last resort)
 camcalib version
@@ -55,12 +55,12 @@ Calibration options (passed through to the container; `camcalib calibrate --help
 | Option | Meaning | Default |
 |---|---|---|
 | `--models M [M ...]` | Kalibr camera model, one per camera or one for all | `pinhole-radtan` |
-| `--target PATH` | target yaml, container path. Put the file in the case as `target.yaml` instead, or rely on the default | resolution order below |
+| `--target PATH` | target yaml, container path. Put the file in the input folder as `target.yaml` instead, or rely on the default | resolution order below |
 | `--step N` | keep every N-th frame | 1 |
 | `--max-frames N` | cap frames per camera after `--step`, evenly spread | none |
 | `--focal PX` | manual focal-length initialisation | auto |
 | `--independent` | N cameras: calibrate each alone, no extrinsics | off |
-| `--camchain PATH` | skip the camera stage; use this camchain for the IMU stage (container path, e.g. `/data_in/case/camchain.yaml`) | |
+| `--camchain PATH` | skip the camera stage; use this camchain for the IMU stage (container path, e.g. `/input/camchain.yaml`) | |
 | `--imu-models M` | `calibrated`, `scale-misalignment`, `scale-misalignment-size-effect` | `calibrated` |
 | `--mi-tol F` | Kalibr mutual-information tolerance; `-1` forces all views | Kalibr default 0.2 |
 | `--approx-sync S` | multi-camera time tolerance [s] | 0.02 |
@@ -68,8 +68,8 @@ Calibration options (passed through to the container; `camcalib calibrate --help
 | `--dry-run` | inspect, print the plan, exit | |
 | `--verbose` | Kalibr verbose output | |
 
-Target resolution order: `--target` > `<case>/target.yaml` > `april_6x10_40mm.yaml` at the
-repository root (mounted automatically as `/data_in/target_default.yaml`).
+Target resolution order: `--target` > `<folder>/target.yaml` > `april_6x10_40mm.yaml` at the
+repository root (mounted automatically as `/defaults/target.yaml`).
 
 Mode is inferred: 1 camera = mono; N cameras = joint (intrinsics + extrinsics); `imu0.csv`
 present = joint followed by camera-IMU. Mono is simply joint with N=1; there is no separate code
@@ -96,6 +96,6 @@ Environment variables:
 | `CAMCALIB_CAPTURE_DIR` | where `camcalib capture` saves frames (default `./capture_out`) |
 | `TZ` | timezone recorded in `manifest.json` (default: host timezone) |
 
-Container mounts set up by `camcalib`: case at `/data_in/case` (read-only), output at
-`/data_out/case`, default target at `/data_in/target_default.yaml`. The container runs with
+Container mounts set up by `camcalib`: case at `/input` (read-only), output at
+`/output`, default target at `/defaults/target.yaml`. The container runs with
 the caller's uid/gid, so output files belong to the user.

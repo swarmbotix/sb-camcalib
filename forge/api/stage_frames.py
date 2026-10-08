@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Stage a case folder into the layout kalibr_bagcreater expects.
+"""Stage a input folder into the layout kalibr_bagcreater expects.
 
     <stage>/cam0/<ns>.png
     <stage>/camN/<ns>.png
@@ -17,7 +17,7 @@ Subsampling: keep every STEP-th frame, then cap at MAX_FRAMES (evenly spread).
 The same selection is applied to every camera so pairs stay aligned.
 
 Usage:
-    stage_frames.py <case_dir> <stage_dir> [--step N] [--max-frames N] [--flat]
+    stage_frames.py <folder> <stage_dir> [--step N] [--max-frames N] [--flat]
 """
 import argparse
 import os
@@ -53,11 +53,11 @@ def ts_for(name):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument('case')
+    ap.add_argument('folder')
     ap.add_argument('stage')
     ap.add_argument('--step', type=int, default=1)
     ap.add_argument('--max-frames', type=int, default=0)
-    ap.add_argument('--flat', action='store_true', help='images sit directly in <case>; treat as cam0')
+    ap.add_argument('--flat', action='store_true', help='images sit directly in <folder>; treat as cam0')
     a = ap.parse_args()
 
     if os.path.isdir(a.stage):
@@ -65,10 +65,10 @@ def main():
     os.makedirs(a.stage)
 
     if a.flat:
-        cams = [('cam0', a.case)]
+        cams = [('cam0', a.folder)]
     else:
-        cams = sorted(((e, os.path.join(a.case, e)) for e in os.listdir(a.case)
-                       if CAM_RE.match(e) and os.path.isdir(os.path.join(a.case, e))),
+        cams = sorted(((e, os.path.join(a.folder, e)) for e in os.listdir(a.folder)
+                       if CAM_RE.match(e) and os.path.isdir(os.path.join(a.folder, e))),
                       key=lambda t: int(CAM_RE.match(t[0]).group(1)))
     if not cams:
         sys.exit('stage_frames: no cam folders found')
@@ -87,7 +87,7 @@ def main():
             os.symlink(os.path.abspath(os.path.join(srcdir, n)), link)
         print(f'  {cam}: staged {len(names)} / {len(list_images(srcdir))} frames')
 
-    imu = os.path.join(a.case, 'imu0.csv')
+    imu = os.path.join(a.folder, 'imu0.csv')
     if os.path.isfile(imu):
         shutil.copy(imu, os.path.join(a.stage, 'imu0.csv'))
         with open(imu) as f:

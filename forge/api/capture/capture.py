@@ -27,7 +27,7 @@ def open_camera(camera_index="/dev/video0", width=1280, height=480, fps=120):
     return cap
 
 
-SAVE_DIR = os.environ.get("CAPTURE_DIR") or "/data_out/debug/cam0"
+SAVE_DIR = os.environ.get("CAPTURE_DIR") or "/output/debug/cam0"
 _arg     = sys.argv[1] if len(sys.argv) > 1 else "/dev/video0"
 DEVICE   = f"/dev/video{_arg}" if _arg.isdigit() else _arg
 

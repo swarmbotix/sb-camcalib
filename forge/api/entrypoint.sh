@@ -2,7 +2,7 @@
 #
 # Container entrypoint. Sources ROS + Kalibr, then dispatches a subcommand.
 #
-#   calibrate [opts]       run a calibration on /data_in/case -> /data_out/case
+#   calibrate [opts]       run a calibration on /input -> /output
 #   capture <script> [..]  run one of the live capture/detector tools
 #   shell                  interactive bash with ROS + Kalibr sourced
 #   version                print image / Kalibr version info
@@ -39,7 +39,7 @@ case "$cmd" in
     exec python3 "/opt/camcalib/capture/$script" "$@"
     ;;
   shell|bash)
-    cd /data_out/case 2>/dev/null || cd /
+    cd /output 2>/dev/null || cd /
     exec bash "$@"
     ;;
   version)

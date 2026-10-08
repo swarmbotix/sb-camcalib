@@ -23,7 +23,7 @@ services:
       - /tmp/.X11-unix:/tmp/.X11-unix:rw
       - /dev:/dev
       - ./api:/opt/camcalib:ro
-      - ../april_6x10_40mm.yaml:/data_in/target_default.yaml:ro
+      - ../april_6x10_40mm.yaml:/defaults/target.yaml:ro
     privileged: true
     entrypoint: ["/opt/camcalib/entrypoint.sh"]
     command: ["shell"]

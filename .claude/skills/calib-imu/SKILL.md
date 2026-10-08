@@ -1,6 +1,6 @@
 ---
 name: calib-imu
-description: Calibrate camera-to-IMU extrinsics T_cam_imu and time offset with ./camcalib (Kalibr in Docker) from ns-timestamped images plus imu0.csv / imu0.yaml. Use when the user mentions IMU, gyro, accelerometer, VIO, camera-IMU spatial or temporal calibration, T_cam_imu, or has an imu0.csv in the case folder.
+description: Calibrate camera-to-IMU extrinsics T_cam_imu and time offset with ./camcalib (Kalibr in Docker) from ns-timestamped images plus imu0.csv / imu0.yaml. Use when the user mentions IMU, gyro, accelerometer, VIO, camera-IMU spatial or temporal calibration, T_cam_imu, or has an imu0.csv in the input folder.
 ---
 
 # Camera + IMU calibration
@@ -14,19 +14,19 @@ Status note: the IMU stage follows the Kalibr command line but has not yet been 
 to end on a real dataset in this repository. Treat the first run as a validation run and read
 `log.txt` closely.
 
-## 1. Check the case folder
+## 1. Check the input folder
 
 ```
-<case>/
+<folder>/
   cam0/<ns>.png ...      REQUIRED ns-timestamp names (>= 13 digits). Index names are refused.
   cam1/ ... camN/        optional, identical file names as cam0
-  imu0.csv               required; presence switches the case to IMU mode
+  imu0.csv               required; presence switches the folder to IMU mode
   imu0.yaml              required with imu0.csv
   camchain.yaml          optional; a previous rig/camchain.yaml to reuse (see step 3)
   target.yaml  calib.yaml   optional
 ```
 
-Validate: `./camcalib inspect <case>`. Fix `imu0.csv present but imu0.yaml missing` and
+Validate: `./camcalib inspect <folder>`. Fix `imu0.csv present but imu0.yaml missing` and
 any naming error before running.
 
 ## 2. IMU data format
@@ -64,7 +64,7 @@ Take noise values from the datasheet or an Allan-variance analysis and inflate t
 Quick sanity check on the csv before a long calibration (rate, timestamp gaps, accel norm):
 
 ```bash
-python3 - <case>/imu0.csv <<'PY'
+python3 - <folder>/imu0.csv <<'PY'
 import csv, math, sys
 rows = list(csv.DictReader(open(sys.argv[1])))
 t = [int(r['timestamp_ns']) for r in rows]
@@ -86,21 +86,21 @@ rotation-only data cannot calibrate the extrinsics.
 ## 3. Choose the workflow
 
 **A. One dataset.** Images are sharp enough for intrinsics and the motion is rich enough for
-the IMU. Run the case directly; the camera stage runs first, then the IMU stage.
+the IMU. Run the folder directly; the camera stage runs first, then the IMU stage.
 
 ```bash
-./camcalib <case>
+./camcalib <folder>
 ```
 
-**B. Two datasets (recommended).** Calibrate cameras on a slow, sharp capture (case A), then
-run the fast-motion capture (case B) with case A's camchain. The container only sees the
-case and output mounts, so the camchain must be copied into case B and referenced by its
+**B. Two datasets (recommended).** Calibrate cameras on a slow, sharp capture (folder A), then
+run the fast-motion capture (folder B) with folder A's camchain. The container only sees the
+input and output mounts, so the camchain must be copied into folder B and referenced by its
 container path:
 
 ```bash
 ./camcalib <A>                                            # camera stage only, no imu0.csv in A
 cp <A>/calib/rig/camchain.yaml <B>/camchain.yaml          # for N == 1 use <A>/calib/cam0/camchain.yaml
-./camcalib <B> --camchain /data_in/case/camchain.yaml     # skips the camera stage in B
+./camcalib <B> --camchain /input/camchain.yaml     # skips the camera stage in B
 ```
 
 Options specific to this stage:
@@ -117,7 +117,7 @@ Options specific to this stage:
 ## 4. Read the result
 
 ```
-<case>/calib/
+<folder>/calib/
   cam<k>/ rig/              camera stage outputs (absent when --camchain was used)
   imu/
     camchain-imucam.yaml    rig camchain + per camera: T_cam_imu (4x4), timeshift_cam_imu (s)
@@ -125,7 +125,7 @@ Options specific to this stage:
     results-imucam.txt      reprojection, gyro and accel error statistics, gravity, biases
     report-imucam.pdf       plots: errors over time, bias estimates, spline fit
     poses-imucam-imu0.csv   estimated IMU trajectory
-  case.json  manifest.json  log.txt
+  input.json  manifest.json  log.txt
 ```
 
 `T_cam_imu` maps points from the IMU frame into the camera frame (X right, Y down, Z
@@ -141,10 +141,10 @@ few 0.01 m/s^2 and gyro errors of a few 0.001 rad/s are typical for consumer MEM
 
 | Symptom | Fix |
 |---|---|
-| inspect refuses the case | index-named images; recapture with real ns timestamps |
-| `imu0.yaml missing` | copy `examples/imu0.yaml` into the case and set the values |
+| inspect refuses the folder | index-named images; recapture with real ns timestamps |
+| `imu0.yaml missing` | copy `examples/imu0.yaml` into the folder and set the values |
 | IMU stage diverges, huge errors | wrong units (deg/s, g), gravity-compensated accel, filtered data, or timestamps on a different clock |
 | large or drifting time shift | timestamps not monotonic, or camera and IMU clocks drift; re-timestamp at capture |
 | translation poorly determined | not enough translation excitation; recapture with faster accelerations |
 | noise too tight, optimisation stalls | inflate the noise densities in `imu0.yaml` |
-| run failed | `<case>/calib/log.txt`; `calib.bag` is kept on failure for manual reruns with `./camcalib shell <case>` |
+| run failed | `<folder>/calib/log.txt`; `calib.bag` is kept on failure for manual reruns with `./camcalib shell <folder>` |

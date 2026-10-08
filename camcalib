@@ -6,21 +6,21 @@
 # Local build only as a fallback: bash forge/build.bash
 #
 # Usage:
-#   ./camcalib [calibrate] [CASE] [--out DIR] [kalibr options]   CASE defaults to the current directory
-#   ./camcalib capture <script> [args]     live capture / target detection (needs X11 + /dev/video*)
-#   ./camcalib shell  [CASE]               interactive shell inside the container
-#   ./camcalib inspect [CASE]              describe the case folder, no calibration
-#   ./camcalib build  [build.bash args]    build the image from forge/
+#   ./camcalib [calibrate] [FOLDER] [--out DIR] [kalibr options]   FOLDER defaults to the current directory
+#   ./camcalib capture <script> [args]       live capture / target detection (needs X11 + /dev/video*)
+#   ./camcalib shell  [FOLDER]               interactive shell inside the container
+#   ./camcalib inspect [FOLDER]              describe the input folder, no calibration
+#   ./camcalib build  [build.bash args]      build the image from forge/
 #   ./camcalib version
 #
-# Case folder layout:
-#   CASE/cam0/*.png            required   (or images directly in CASE/, treated as cam0)
-#   CASE/cam1..camN/*.png      optional   same file names as cam0 = synchronised frames
-#   CASE/imu0.csv + imu0.yaml  optional   camera-IMU calibration (needs ns-timestamp file names)
-#   CASE/target.yaml           optional   overrides the default target (april_6x10_40mm.yaml at repo root)
-#   CASE/calib.yaml            optional   per-case defaults (models, step, max_frames, focal, ...)
+# Input folder layout:
+#   FOLDER/cam0/*.png            required   (or images directly in FOLDER/, treated as cam0)
+#   FOLDER/cam1..camN/*.png      optional   same file names as cam0 = synchronised frames
+#   FOLDER/imu0.csv + imu0.yaml  optional   camera-IMU calibration (needs ns-timestamp file names)
+#   FOLDER/target.yaml           optional   overrides the default target (april_6x10_40mm.yaml at repo root)
+#   FOLDER/calib.yaml            optional   per-folder defaults (models, step, max_frames, focal, ...)
 #
-# Output (default CASE/calib, or --out DIR):
+# Output (default FOLDER/calib, or --out DIR):
 #   cam<k>/camchain.yaml  rig/camchain.yaml (N>=2)  imu/camchain-imucam.yaml (with IMU)  manifest.json  log.txt
 #
 # Calibration options are passed through to the container; see `./camcalib calibrate --help`.
@@ -46,10 +46,10 @@ need_image() {
 
 DEV=(); [ "${CAMCALIB_DEV:-0}" = 1 ] && DEV=(-v "$REPO/forge/api:/opt/camcalib:ro")
 
-# Resolve CASE argument (first non-option arg) and --out DIR from the arg list;
+# Resolve FOLDER argument (first non-option arg) and --out DIR from the arg list;
 # pass everything else through.
-parse_case_args() {
-  CASE=""; OUT=""; PASS=()
+parse_folder_args() {
+  FOLDER=""; OUT=""; PASS=()
   while [ $# -gt 0 ]; do
     case "$1" in
       --out) OUT="$2"; shift 2 ;;
@@ -63,24 +63,24 @@ parse_case_args() {
              --models)
                while [ $# -gt 0 ] && [[ "$1" != --* ]]; do PASS+=("$1"); shift; done ;;
            esac ;;
-      *) if [ -z "$CASE" ]; then CASE="$1"; else PASS+=("$1"); fi; shift ;;
+      *) if [ -z "$FOLDER" ]; then FOLDER="$1"; else PASS+=("$1"); fi; shift ;;
     esac
   done
-  CASE="$(realpath "${CASE:-.}")"
-  OUT="$(realpath -m "${OUT:-$CASE/calib}")"
+  FOLDER="$(realpath "${FOLDER:-.}")"
+  OUT="$(realpath -m "${OUT:-$FOLDER/calib}")"
 }
 
 # Common docker run arguments for data-processing subcommands (fills MOUNTS).
 data_mounts() {
   local ro="$1"
-  MOUNTS=(-v "$CASE:/data_in/case:$ro" -v "$OUT:/data_out/case" -e "TZ=${TZ:-$(timedatectl show -p Timezone --value 2>/dev/null || echo UTC)}")
-  [ -f "$DEFAULT_TARGET" ] && MOUNTS+=(-v "$DEFAULT_TARGET:/data_in/target_default.yaml:ro" -e "CAMCALIB_TARGET_NAME=$(basename "$DEFAULT_TARGET")")
+  MOUNTS=(-v "$FOLDER:/input:$ro" -v "$OUT:/output" -e "TZ=${TZ:-$(timedatectl show -p Timezone --value 2>/dev/null || echo UTC)}")
+  [ -f "$DEFAULT_TARGET" ] && MOUNTS+=(-v "$DEFAULT_TARGET:/defaults/target.yaml:ro" -e "CAMCALIB_TARGET_NAME=$(basename "$DEFAULT_TARGET")")
 }
 
 cmd="${1:-calibrate}"
 case "$cmd" in
   calibrate|capture|shell|inspect|build|version|-h|--help|help) shift ;;
-  *) cmd=calibrate ;;   # first arg is a CASE path or an option
+  *) cmd=calibrate ;;   # first arg is a FOLDER path or an option
 esac
 
 case "$cmd" in
@@ -99,19 +99,19 @@ case "$cmd" in
 
   inspect)
     need_image
-    parse_case_args "$@"
-    [ -d "$CASE" ] || die "case folder not found: $CASE"
-    exec docker run --rm -v "$CASE:/data_in/case:ro" "${DEV[@]}" "$IMAGE" \
-      shell -c 'python3 /opt/camcalib/inspect_case.py /data_in/case'
+    parse_folder_args "$@"
+    [ -d "$FOLDER" ] || die "input folder not found: $FOLDER"
+    exec docker run --rm -v "$FOLDER:/input:ro" "${DEV[@]}" "$IMAGE" \
+      shell -c 'python3 /opt/camcalib/inspect_input.py /input'
     ;;
 
   calibrate)
     need_image
-    parse_case_args "$@"
-    [ -d "$CASE" ] || die "case folder not found: $CASE"
+    parse_folder_args "$@"
+    [ -d "$FOLDER" ] || die "input folder not found: $FOLDER"
     mkdir -p "$OUT" || die "cannot create output folder: $OUT"
-    [ "$OUT" = "$CASE" ] && die "--out must differ from the case folder"
-    echo "camcalib: case=$CASE"
+    [ "$OUT" = "$FOLDER" ] && die "--out must differ from the input folder"
+    echo "camcalib: input=$FOLDER"
     echo "camcalib: out=$OUT"
     data_mounts ro
     exec docker run --rm \
@@ -122,9 +122,9 @@ case "$cmd" in
 
   shell)
     need_image
-    parse_case_args "$@"
+    parse_folder_args "$@"
     MOUNTS=()
-    if [ -d "$CASE/cam0" ] || ls "$CASE"/*.png >/dev/null 2>&1; then
+    if [ -d "$FOLDER/cam0" ] || ls "$FOLDER"/*.png >/dev/null 2>&1; then
       mkdir -p "$OUT"; data_mounts rw
     fi
     exec docker run --rm -it \
@@ -137,16 +137,16 @@ case "$cmd" in
 
   capture)
     need_image
-    # capture <script> [args]; frames go to $CAMCALIB_CAPTURE_DIR (default ./capture_out) as /data_out/case
+    # capture <script> [args]; frames go to $CAMCALIB_CAPTURE_DIR (default ./capture_out) as /output
     OUT="$(realpath -m "${CAMCALIB_CAPTURE_DIR:-$PWD/capture_out}")"; mkdir -p "$OUT"
     exec docker run --rm -it \
       --network host --privileged \
       -e DISPLAY="${DISPLAY:-:0}" -e QT_X11_NO_MITSHM=1 \
-      -e CAPTURE_DIR=/data_out/case/cam0 \
+      -e CAPTURE_DIR=/output/cam0 \
       -v /tmp/.X11-unix:/tmp/.X11-unix:rw \
       -v /dev:/dev \
-      -v "$OUT:/data_out/case" \
-      -v "$DEFAULT_TARGET:/data_in/target_default.yaml:ro" \
+      -v "$OUT:/output" \
+      -v "$DEFAULT_TARGET:/defaults/target.yaml:ro" \
       "${DEV[@]}" \
       "$IMAGE" capture "$@"
     ;;

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# camcalib container worker: /data_in/case  ->  /data_out/case
+# camcalib container worker: /input  ->  /output
 #
 # Stages:  inspect -> stage -> bag -> cameras -> [imu] -> arrange outputs
 #
@@ -9,7 +9,7 @@
 #                        (pinhole-radtan | pinhole-equi | pinhole-fov | omni-radtan |
 #                         omni-none | ds-none | eucm-none)          default: pinhole-radtan
 #   --target PATH        target yaml (container path). Resolution order when omitted:
-#                        <case>/target.yaml  >  /data_in/target_default.yaml
+#                        <folder>/target.yaml  >  /defaults/target.yaml
 #   --step N             keep every N-th frame                      default: 1
 #   --max-frames N       cap frames per camera after --step (evenly spread)
 #   --focal PX           manual focal-length init (use when auto init yields NaN)
@@ -25,8 +25,8 @@
 #   --verbose            pass --verbose to Kalibr
 set -uo pipefail
 
-IN=/data_in/case
-OUT=/data_out/case
+IN=/input
+OUT=/output
 STAGE=/tmp/stage
 KALIBR_PY=${KALIBR_PY:-/opt/kalibr/src/kalibr/aslam_offline_calibration/kalibr/python}
 BAGTAG=calib
@@ -72,10 +72,10 @@ die() { echo "camcalib: $*" >&2; exit 1; }
 # ---------------------------------------------------------------- inspect
 [ -d "$IN" ] || die "no input mounted at $IN"
 mkdir -p "$OUT" || die "cannot write $OUT"
-INFO_JSON=$(python3 /opt/camcalib/inspect_case.py "$IN") || true
-echo "$INFO_JSON" > "$OUT/case.json"
+INFO_JSON=$(python3 /opt/camcalib/inspect_input.py "$IN") || true
+echo "$INFO_JSON" > "$OUT/input.json"
 
-jq_py() { python3 -c "import json,sys; d=json.load(open('$OUT/case.json')); print($1)"; }
+jq_py() { python3 -c "import json,sys; d=json.load(open('$OUT/input.json')); print($1)"; }
 NCAMS=$(jq_py "len(d['cams'])")
 MODE=$(jq_py "d['mode'] or ''")
 FLAT=$(jq_py "int(d['flat'])")
@@ -89,7 +89,7 @@ NAMING=$(jq_py "d['cams'][0]['naming'] if d['cams'] else ''")
 [ -n "$WARNINGS" ] && echo "warnings:" && echo "$WARNINGS" | sed 's/^/  /'
 [ -n "$ERRORS" ] && { echo "errors:"; echo "$ERRORS" | sed 's/^/  /'; exit 1; }
 
-# per-case defaults from calib.yaml (only keys not given on the command line)
+# per-folder defaults from calib.yaml (only keys not given on the command line)
 CALIB_YAML="$IN/calib.yaml"
 if [ -f "$CALIB_YAML" ]; then
   cy() { python3 -c "import yaml,sys; d=yaml.safe_load(open('$CALIB_YAML')) or {}; v=d.get('$1'); print(' '.join(map(str,v)) if isinstance(v,list) else ('' if v is None else v))"; }
@@ -105,8 +105,8 @@ fi
 # target resolution
 if [ -z "$TARGET" ]; then
   if [ -n "$CASE_TARGET" ]; then TARGET="$CASE_TARGET"
-  elif [ -f /data_in/target_default.yaml ]; then TARGET=/data_in/target_default.yaml
-  else die "no target yaml: pass --target, add <case>/target.yaml, or mount a default"; fi
+  elif [ -f /defaults/target.yaml ]; then TARGET=/defaults/target.yaml
+  else die "no target yaml: pass --target, add <folder>/target.yaml, or mount a default"; fi
 fi
 [ -f "$TARGET" ] || die "target yaml not found: $TARGET"
 
@@ -123,7 +123,7 @@ REPORT_FLAG="--dont-show-report"
 [ "$NO_REPORT" -eq 1 ] && REPORT_FLAG="--dont-show-report"   # Kalibr always writes the PDF; flag kept for parity
 
 echo "================ camcalib ================"
-echo "  case     : $IN  (cams=$NCAMS, naming=$NAMING, flat=$FLAT)"
+echo "  input    : $IN  (cams=$NCAMS, naming=$NAMING, flat=$FLAT)"
 echo "  mode     : $MODE$([ "$INDEPENDENT" -eq 1 ] && echo ' (independent)')"
 echo "  out      : $OUT"
 echo "  target   : $TARGET"
@@ -170,7 +170,7 @@ mode, indep, step, maxf, focal, target, imu_models, *models = sys.argv[1:]
 print(json.dumps({
   "mode": mode, "independent": bool(int(indep)), "models": models,
   "step": int(step), "max_frames": int(maxf), "focal_init": focal or None,
-  "target": (os.environ.get("CAMCALIB_TARGET_NAME") if target == "/data_in/target_default.yaml" else None) or os.path.basename(target),
+  "target": (os.environ.get("CAMCALIB_TARGET_NAME") if target == "/defaults/target.yaml" else None) or os.path.basename(target),
   "imu_models": imu_models,
   "kalibr_commit": os.environ.get("KALIBR_COMMIT"), "date": datetime.datetime.now().isoformat(timespec="seconds"),
 }))
@@ -184,7 +184,7 @@ if [ "$INDEPENDENT" -eq 1 ] && [ "$NCAMS" -gt 1 ]; then
     echo "---------------- cam$i (independent) ----------------"
     sub="$OUT/cam$i"; mkdir -p "$sub"
     stage="$STAGE/cam$i"; rm -rf "$stage"; mkdir -p "$stage"
-    # stage the whole case, then keep only this camera as cam0
+    # stage the whole folder, then keep only this camera as cam0
     python3 /opt/camcalib/stage_frames.py "$IN" "$STAGE/all" --step "$STEP" --max-frames "$MAX_FRAMES" >/dev/null || { STATUS=1; continue; }
     mv "$STAGE/all/cam$i" "$stage/cam0"; rm -rf "$STAGE/all"
     bag="$sub/$BAGTAG.bag"; rm -f "$bag"

@@ -44,7 +44,7 @@ TAG_SIZE    = 0.052
 TAG_SPACING = 0.3077
 MIN_TAGS    = int(max(TAG_ROWS, TAG_COLS) + 1)   # 11
 
-SAVE_DIR = os.environ.get("CAPTURE_DIR") or "/data_out/debug/cam0"
+SAVE_DIR = os.environ.get("CAPTURE_DIR") or "/output/debug/cam0"
 _arg     = sys.argv[1] if len(sys.argv) > 1 else "/dev/video2"
 DEVICE   = f"/dev/video{_arg}" if _arg.isdigit() else _arg
 

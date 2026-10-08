@@ -91,8 +91,8 @@ COPY forge/api /opt/camcalib
 RUN chmod +x /opt/camcalib/*.sh /opt/camcalib/*.py /opt/camcalib/capture/*.py
 
 # Mount points used by the host script.
-RUN mkdir -p /data_in/case /data_out/case && chmod 777 /data_in /data_out /data_out/case
+RUN mkdir -p /input /output /defaults && chmod 777 /input /output /defaults
 
-WORKDIR /data_out/case
+WORKDIR /output
 ENTRYPOINT ["/opt/camcalib/entrypoint.sh"]
 CMD ["calibrate"]

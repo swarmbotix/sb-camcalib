@@ -2,7 +2,7 @@
 
 Camera calibration in a box. [Kalibr](https://github.com/ethz-asl/kalibr) (ROS Noetic) is built
 into a Docker image (`swarmbotix/sb_kalibr:latest`, pulled on first use); the host script
-`camcalib` runs it on one *case* folder and writes results to `<case>/calib/`. The image holds
+`camcalib` runs it on one input folder and writes results to `<folder>/calib/`. The image holds
 no data and no target; everything dataset-specific is mounted at run time.
 
 Mode is inferred from the folder, never from a flag: camera count = number of `cam*/`
@@ -15,7 +15,7 @@ subfolders, IMU stage = presence of `imu0.csv`. Flags only modify how a mode run
 | Calibrate one camera | skill `calib-mono` |
 | Calibrate a stereo / N-camera rig | skill `calib-rig` |
 | Calibrate cameras + IMU | skill `calib-imu`, background in `docs/imu.md` |
-| Exact input rules and output file layout | `docs/case-format.md` |
+| Exact input rules and output file layout | `docs/input-format.md` |
 | Install, all `camcalib` options, env vars, container mounts | `docs/commands.md` |
 | Live capture tools, camera models, targets, capture guidance | `docs/capture-and-targets.md` |
 | Edit `forge/api`, rebuild or publish the image, failure modes, license | `docs/development.md` |
@@ -23,26 +23,26 @@ subfolders, IMU stage = presence of `imu0.csv`. Flags only modify how a mode run
 
 ## Every supported operation
 
-| # | Case folder contains | Mode | Command | Key outputs |
+| # | Input folder contains | Mode | Command | Key outputs |
 |---|---|---|---|---|
-| 1 | `cam0/` with index names (`0000.png`) | mono | `./camcalib CASE` | `cam0/{camchain.yaml,results-cam.txt,report-cam.pdf}` |
+| 1 | `cam0/` with index names (`0000.png`) | mono | `./camcalib FOLDER` | `cam0/{camchain.yaml,results-cam.txt,report-cam.pdf}` |
 | 2 | `cam0/` with ns names (`1700000000033000000.png`) | mono | same | same |
-| 3 | images directly in `CASE/`, no `cam0/` | mono (flat) | same | same |
-| 4 | `cam0/ .. camN/`, identical file names | joint: intrinsics + extrinsics | `./camcalib CASE` | `rig/camchain.yaml` (`T_cn_cnm1`), `cam<k>/camchain.yaml` slices, `rig/{results-cam.txt,report-cam.pdf}` |
-| 5 | `cam0/ .. camN/` | independent, N mono runs | `./camcalib CASE --independent` | `cam<k>/{camchain.yaml,results-cam.txt,report-cam.pdf}`, no `rig/` |
-| 6 | `cam0/` (ns names) + `imu0.csv` + `imu0.yaml` | mono, then camera-IMU | `./camcalib CASE` | row 1 outputs + `imu/{camchain-imucam.yaml,imu.yaml,results-imucam.txt,report-imucam.pdf}` |
-| 7 | `cam0/ .. camN/` (ns names) + `imu0.csv` + `imu0.yaml` | joint, then camera-IMU | `./camcalib CASE` | row 4 outputs + `imu/*`, one `T_cam_imu` per camera |
-| 8 | row 6 or 7 plus `camchain.yaml` copied from an earlier run | camera-IMU only | `./camcalib CASE --camchain /data_in/case/camchain.yaml` | `imu/*`; camera stage skipped |
+| 3 | images directly in `FOLDER/`, no `cam0/` | mono (flat) | same | same |
+| 4 | `cam0/ .. camN/`, identical file names | joint: intrinsics + extrinsics | `./camcalib FOLDER` | `rig/camchain.yaml` (`T_cn_cnm1`), `cam<k>/camchain.yaml` slices, `rig/{results-cam.txt,report-cam.pdf}` |
+| 5 | `cam0/ .. camN/` | independent, N mono runs | `./camcalib FOLDER --independent` | `cam<k>/{camchain.yaml,results-cam.txt,report-cam.pdf}`, no `rig/` |
+| 6 | `cam0/` (ns names) + `imu0.csv` + `imu0.yaml` | mono, then camera-IMU | `./camcalib FOLDER` | row 1 outputs + `imu/{camchain-imucam.yaml,imu.yaml,results-imucam.txt,report-imucam.pdf}` |
+| 7 | `cam0/ .. camN/` (ns names) + `imu0.csv` + `imu0.yaml` | joint, then camera-IMU | `./camcalib FOLDER` | row 4 outputs + `imu/*`, one `T_cam_imu` per camera |
+| 8 | row 6 or 7 plus `camchain.yaml` copied from an earlier run | camera-IMU only | `./camcalib FOLDER --camchain /input/camchain.yaml` | `imu/*`; camera stage skipped |
 
-Every run also writes `case.json`, `manifest.json`, `log.txt`; `calib.bag` stays only with
+Every run also writes `input.json`, `manifest.json`, `log.txt`; `calib.bag` stays only with
 `--keep-bag` or on failure.
 
 Modifiers for any row: `--models M` (one for all) or `--models M0 M1 ...` (one per camera;
 `pinhole-radtan` default, `pinhole-equi`, `pinhole-fov`, `omni-radtan`, `omni-none`,
 `ds-none`, `eucm-none`), `--out DIR`, `--step N`, `--max-frames N`, `--focal PX`,
-`--target PATH` or `CASE/target.yaml`, `CASE/calib.yaml` for per-case defaults,
+`--target PATH` or `FOLDER/target.yaml`, `FOLDER/calib.yaml` for per-folder defaults,
 `--imu-models`, `--mi-tol F`, `--approx-sync S`, `--keep-bag`, `--dry-run`, `--verbose`.
-Other commands: `./camcalib inspect CASE`, `./camcalib shell [CASE]`,
+Other commands: `./camcalib inspect FOLDER`, `./camcalib shell [FOLDER]`,
 `./camcalib capture <script> /dev/videoX`, `./camcalib build`, `./camcalib version`.
 
 ## Combinations that fail or surprise
@@ -68,8 +68,8 @@ Other commands: `./camcalib inspect CASE`, `./camcalib shell [CASE]`,
 - `T_cam_imu` maps points from the IMU frame into the camera frame.
 - Camera frame: X right, Y down, Z forward.
 - Index names become synthetic timestamps at 0.1 s per frame; ns names (>= 13 digits) are used as is.
-- Container mounts: case at `/data_in/case` (read-only), output at `/data_out/case`, default
-  target at `/data_in/target_default.yaml`. Paths given to `--target` / `--camchain` are container paths.
+- Container mounts: case at `/input` (read-only), output at `/output`, default
+  target at `/defaults/target.yaml`. Paths given to `--target` / `--camchain` are container paths.
 
 ## Repository layout
 
@@ -77,9 +77,9 @@ Other commands: `./camcalib inspect CASE`, `./camcalib shell [CASE]`,
 camcalib                 host entrypoint (bash)
 april_6x10_40mm.yaml     default target (Kalibr AprilGrid yaml)
 README.md                quick start for users
-docs/                    reference: case-format, commands, capture-and-targets, imu, development
+docs/                    reference: input-format, commands, capture-and-targets, imu, development
 .claude/skills/          calib-mono, calib-rig, calib-imu
-examples/                sample mono case: 0000..0146.png (1280x800, flat layout) and its calib/ output;
+examples/                sample mono dataset: 0000..0146.png (1280x800, flat layout) and its calib/ output;
                          detect/detect_aprilgrid.py draws Kalibr AprilGrid corners on one image (host, OpenCV only)
 targets/                 printable targets (PDF / PNG)
 forge/                   image source; only for rebuilding
@@ -87,10 +87,10 @@ forge/                   image source; only for rebuilding
   build.bash             docker build (+ --push)
   patches/               kalibr-fixes.patch
   api/                   /opt/camcalib in the image: entrypoint.sh, calibrate.sh,
-                         inspect_case.py, stage_frames.py, split_camchain.py, capture/
+                         inspect_input.py, stage_frames.py, split_camchain.py, capture/
 ```
 
-Fast edit loop: `CAMCALIB_DEV=1 ./camcalib CASE` overlays `forge/api` on the published image
+Fast edit loop: `CAMCALIB_DEV=1 ./camcalib FOLDER` overlays `forge/api` on the published image
 without a rebuild.
 
 ## Status

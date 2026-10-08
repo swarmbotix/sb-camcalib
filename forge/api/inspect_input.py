@@ -1,23 +1,23 @@
 #!/usr/bin/env python3
-"""Inspect a calibration case folder and describe it as JSON.
+"""Inspect a calibration input folder and describe it as JSON.
 
-A *case* is a folder with this layout:
+The input is a folder with this layout:
 
-    <case>/
-      cam0/ *.png|*.jpg|*.bmp     required (or flat images directly in <case>/, treated as cam0)
+    <folder>/
+      cam0/ *.png|*.jpg|*.bmp     required (or flat images directly in <folder>/, treated as cam0)
       cam1/ ... camN/             optional; same frame count and identical file names as cam0
       imu0.csv                    optional; timestamp_ns, wx, wy, wz, ax, ay, az
       imu0.yaml                   required when imu0.csv is present (Kalibr IMU noise yaml)
       target.yaml                 optional; overrides the default target
-      calib.yaml                  optional; per-case defaults for calibration options
+      calib.yaml                  optional; per-folder defaults for calibration options
 
 Frame naming:
     index     0000.png, 0001.png ...            -> timestamps are synthesised from the index
     timestamp <nanoseconds>.png (>= 13 digits)  -> timestamps are used as-is (required for IMU)
 
 Usage:
-    inspect_case.py <case_dir>            prints JSON description
-    inspect_case.py <case_dir> --strict   exit 1 on any error (missing cam0, mismatch, ...)
+    inspect_input.py <folder>              prints JSON description
+    inspect_input.py <folder>   --strict   exit 1 on any error (missing cam0, mismatch, ...)
 """
 import json
 import os
@@ -42,11 +42,11 @@ def naming_of(names):
     return 'other'
 
 
-def inspect(case):
+def inspect(folder):
     info = {
-        'case': case,
+        'folder': folder,
         'cams': [],           # list of {name, dir, count, naming}
-        'flat': False,        # images directly in case dir, treated as cam0
+        'flat': False,        # images directly in folder dir, treated as cam0
         'imu_csv': None,
         'imu_yaml': None,
         'target_yaml': None,
@@ -55,14 +55,14 @@ def inspect(case):
         'errors': [],
         'warnings': [],
     }
-    if not os.path.isdir(case):
-        info['errors'].append(f'not a directory: {case}')
+    if not os.path.isdir(folder):
+        info['errors'].append(f'not a directory: {folder}')
         return info
 
-    entries = os.listdir(case)
+    entries = os.listdir(folder)
     cam_dirs = sorted(
         (int(CAM_RE.match(e).group(1)), e) for e in entries
-        if CAM_RE.match(e) and os.path.isdir(os.path.join(case, e)))
+        if CAM_RE.match(e) and os.path.isdir(os.path.join(folder, e)))
 
     if cam_dirs:
         expected = list(range(len(cam_dirs)))
@@ -70,18 +70,18 @@ def inspect(case):
         if got != expected:
             info['errors'].append(f'camera folders must be contiguous cam0..camN, found {[e for _, e in cam_dirs]}')
         for _, e in cam_dirs:
-            d = os.path.join(case, e)
+            d = os.path.join(folder, e)
             names = list_images(d)
             info['cams'].append({'name': e, 'dir': d, 'count': len(names), 'naming': naming_of(names),
                                  'names': names})
     else:
-        names = list_images(case)
+        names = list_images(folder)
         if names:
             info['flat'] = True
-            info['cams'].append({'name': 'cam0', 'dir': case, 'count': len(names),
+            info['cams'].append({'name': 'cam0', 'dir': folder, 'count': len(names),
                                  'naming': naming_of(names), 'names': names})
         else:
-            info['errors'].append('no cam0/ folder and no images in case folder')
+            info['errors'].append('no cam0/ folder and no images in input folder')
 
     for c in info['cams']:
         if c['count'] == 0:
@@ -102,7 +102,7 @@ def inspect(case):
 
     for fn, key in (('imu0.csv', 'imu_csv'), ('imu0.yaml', 'imu_yaml'),
                     ('target.yaml', 'target_yaml'), ('calib.yaml', 'calib_yaml')):
-        p = os.path.join(case, fn)
+        p = os.path.join(folder, fn)
         if os.path.isfile(p):
             info[key] = p
 

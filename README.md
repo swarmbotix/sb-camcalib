@@ -2,7 +2,7 @@
 
 Camera calibration in a box. [Kalibr](https://github.com/ethz-asl/kalibr) runs inside a Docker
 image; the host script `camcalib` points it at a folder of images and writes the results next
-to them. Three cases are supported: one camera, N synchronised cameras (stereo is N=2), and
+to them. Three setups are supported: one camera, N synchronised cameras (stereo is N=2), and
 cameras plus an IMU.
 
 ```bash
@@ -11,7 +11,7 @@ cd sb_kalibr
 ./camcalib version          # pulls swarmbotix/sb_kalibr:latest on first use (~7 GB)
 ```
 
-Requirements: Docker, Linux. Full reference: [docs/](docs/) (case format, commands, capture and targets, IMU, development).
+Requirements: Docker, Linux. Full reference: [docs/](docs/) (input format, commands, capture and targets, IMU, development).
 
 With the swarmbotix CLI (`sb` 0.2.1 or newer) there is no clone step: the repo is an sb app
 package (`sb.app.yml` at the root), so
@@ -31,8 +31,8 @@ After the clone or `sb install`, open Claude Code in the package folder and past
 I just installed sb_kalibr. Use the calib-mono skill to calibrate the bundled sample
 in examples/ and show me the resulting camchain.yaml. Then explain, at a high level
 only: what sb install / the clone set up, which Docker image is used and when it is
-pulled, what the example case folder looks like, what each output file means, and
-how I would run my own single camera, stereo rig, or camera+IMU case.
+pulled, what the example input folder looks like, what each output file means, and
+how I would run my own single camera, stereo rig, or camera+IMU folder.
 ```
 
 Claude runs the sample through the skill, reads the result and summarises the workflow.
@@ -56,16 +56,16 @@ python3 examples/detect/detect_aprilgrid.py examples/0034.png
 ## Usage
 
 ```bash
-./camcalib [CASE] [options]
+./camcalib [FOLDER] [options]
 ```
 
-`CASE` is the input folder (defaults to the current directory). The number of `cam*/`
+`FOLDER` is the input folder (defaults to the current directory). The number of `cam*/`
 subfolders sets the camera count; an `imu0.csv` file enables the IMU stage. Results go to
-`CASE/calib/` unless `--out` is given.
+`FOLDER/calib/` unless `--out` is given.
 
 | Option | Meaning | Default |
 |---|---|---|
-| `--out DIR` | output folder | `CASE/calib` |
+| `--out DIR` | output folder | `FOLDER/calib` |
 | `--models M [M ...]` | camera model, one for all or one per camera | `pinhole-radtan` |
 | `--independent` | N cameras: calibrate each alone, no extrinsics | off |
 | `--step N` | keep every N-th frame | 1 |
@@ -75,7 +75,7 @@ subfolders sets the camera count; an `imu0.csv` file enables the IMU stage. Resu
 | `--keep-bag` | keep the intermediate `calib.bag` | delete |
 | `--dry-run` | show the plan, do not run | |
 
-Other commands: `./camcalib inspect CASE` (check the folder), `./camcalib calibrate --help`
+Other commands: `./camcalib inspect FOLDER` (check the folder), `./camcalib calibrate --help`
 (all options), `./camcalib shell` (bash inside the container).
 
 ---
@@ -184,7 +184,7 @@ myrig_imu/calib/
 
 ## 4. Expanded example: single camera, other lens models
 
-Same input as case 1. The default model is `pinhole-radtan` (normal lens, up to ~120 deg
+Same input as section 1. The default model is `pinhole-radtan` (normal lens, up to ~120 deg
 FOV). Pick another model with `--models`:
 
 | Lens | Command |
@@ -204,7 +204,7 @@ Useful extras:
 ./camcalib inspect ~/data/mycam                      # check the folder, no calibration
 ```
 
-Fixed defaults for one case can go in `mycam/calib.yaml` instead of the command line:
+Fixed defaults for one folder can go in `mycam/calib.yaml` instead of the command line:
 
 ```yaml
 models: [pinhole-equi]
@@ -212,7 +212,7 @@ step: 2
 max_frames: 60
 ```
 
-Output is the same as case 1; `cam0/camchain.yaml` reports the chosen `camera_model` and
+Output is the same as section 1; `cam0/camchain.yaml` reports the chosen `camera_model` and
 `distortion_model`. For a rig, pass one model per camera in `cam0..camN` order, for example
 `--models pinhole-equi pinhole-radtan`.
 
